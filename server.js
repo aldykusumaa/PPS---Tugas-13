@@ -5,9 +5,7 @@ const PORT = 3000;
 
 app.use(express.json());
 
-// =========================================================================
 // 1. MIDDLEWARE CORS (HAK AKSES JARINGAN AGAR BROWSER TIDAK BLOCKED)
-// =========================================================================
 app.use((req, res, next) => {
     res.header("Access-Control-Allow-Origin", "*");
     res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
@@ -18,9 +16,7 @@ app.use((req, res, next) => {
     next();
 });
 
-// =========================================================================
 // 2. KONFIGURASI KONEKSI DATABASE MYSQL (XAMPP)
-// =========================================================================
 const db = mysql.createPool({
     host: 'localhost',
     user: 'root',
@@ -31,11 +27,8 @@ const db = mysql.createPool({
     queueLimit: 0
 });
 
-// =========================================================================
-// 3. [READ ALL / QUEUE] - Mengambil Data Antrean Verifikasi untuk Admin
-// =========================================================================
+// 3. Mengambil Data Antrean Verifikasi untuk Admin
 app.get('/v1/verifications', (req, res) => {
-    // Klausa diperketat hanya mengambil data yang berstatus 'Menunggu Verifikasi'
     const queryStr = "SELECT * FROM payments WHERE status_payment = 'Menunggu Verifikasi'";
     db.query(queryStr, (err, results) => {
         if (err) {
@@ -45,9 +38,7 @@ app.get('/v1/verifications', (req, res) => {
     });
 });
 
-// =========================================================================
-// 4. [UPGRADED UPDATE / PATCH] - End-point Utama Tanggung Jawab Kadek Aldi (UC15)
-// =========================================================================
+// 4. [UPGRADED UPDATE / PATCH] - End-point Utama Tanggung Jawab
 app.patch('/v1/payments/:id', (req, res) => {
     try {
         const paymentId = parseInt(req.params.id);
@@ -57,7 +48,7 @@ app.patch('/v1/payments/:id', (req, res) => {
             return res.status(400).json({ success: false, message: "Parameter status verifikasi wajib diisi." });
         }
 
-        // LANGKAH 1: Cari data transaksi di MySQL untuk cek status awal (Mencegah Duplicate Request)
+        // 1. Mencegah Duplicate Request
         db.query('SELECT * FROM payments WHERE payment_id = ?', [paymentId], (err, paymentResults) => {
             if (err) return res.status(500).json({ success: false, message: "Database Error saat mencari data." });
 
@@ -67,7 +58,7 @@ app.patch('/v1/payments/:id', (req, res) => {
 
             const currentPayment = paymentResults[0];
 
-            // PROTEKSI DUPLICATE REQUEST: Jika status sudah bukan 'Menunggu Verifikasi', blokir!
+            // PROTEKSI DUPLICATE REQUEST
             if (currentPayment.status_payment === 'Berhasil' || currentPayment.status_payment === 'Ditolak') {
                 return res.status(409).json({
                     success: false,
@@ -92,7 +83,6 @@ app.patch('/v1/payments/:id', (req, res) => {
 
             } else if (status === 'Berhasil') {
                 // Skenario Verifikasi Disetujui (Orkestrasi Antar Tabel MySQL)
-                // Ambil durasi hari dari tabel package_gym terlebih dahulu
                 db.query('SELECT duration_days FROM package_gym WHERE package_id = ?', [currentPayment.package_id], (err, packageResults) => {
                     if (err || packageResults.length === 0) {
                         return res.status(500).json({ success: false, message: "Gagal mengambil data durasi paket gym." });
