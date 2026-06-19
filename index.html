@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gymove - Admin Payment Verification</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .navbar {
+            background-color: #1e293b;
+        }
+        
+        .card {
+            border: none;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        
+        .badge-pending {
+            background-color: #f59e0b;
+            color: #fff;
+        }
+    </style>
+</head>
+
+<body>
+
+    <nav class="navbar navbar-dark shadow-sm mb-4">
+        <div class="container">
+            <a class="navbar-brand fw-bold" href="#">GYMOVE / GYM PRO - Admin Dashboard</a>
+            <span class="navbar-text text-white-50">S2 Sistem Informasi ITS</span>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="row">
+            <div class="col-12">
+                <div id="alert-notification" class="alert d-none shadow-sm mb-4" role="alert"></div>
+            </div>
+        </div>
+
+        <div class="card p-4">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4 class="m-0 fw-bold text-secondary">Daftar Antrean Verifikasi Bukti Pembayaran (UC15)</h4>
+                <button class="btn btn-sm btn-outline-primary" onclick="loadAntrean()">🔄 Refresh Antrean</button>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>ID Transaksi</th>
+                            <th>ID Member</th>
+                            <th>ID Paket</th>
+                            <th>Nominal</th>
+                            <th>Status Sistem</th>
+                            <th class="text-center">Aksi Keputusan Admin</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body-antrean">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = "http://localhost:3000";
+
+        // Fungsi Otomatis Memuat Antrean dari Database saat Halaman Dibuka
+        document.addEventListener("DOMContentLoaded", () => {
+            loadAntrean();
+        });
+
+        // Mengambil data antrean dari backend via Fetch API
+        async function loadAntrean() {
+            const tableBody = document.getElementById("table-body-antrean");
+            tableBody.innerHTML = `<tr><td colspan="6" class="text-center text-muted">Memuat data dari database MySQL...</td></tr>`;
+
+            try {
+                const response = await fetch(`${API_URL}/v1/verifications`);
+                const result = await response.json();
+
+                if (result.success && result.data.length > 0) {
+                    tableBody.innerHTML = "";
+                    result.data.forEach(item => {
+                        tableBody.innerHTML += `
+                            <tr id="row-${item.payment_id}">
+                                <td class="fw-bold">#${item.payment_id}</td>
+                                <td><span class="badge bg-secondary">${item.member_id}</span></td>
+                                <td>Package ${item.package_id}</td>
+                                <td class="fw-semibold text-success">Rp ${parseInt(item.nominal).toLocaleString('id-ID')}</td>
+                                <td><span id="badge-status-${item.payment_id}" class="badge badge-pending">Menunggu Verifikasi</span></td>
+                                <td class="text-center">
+                                    <button id="btn-terima-${item.payment_id}" class="btn btn-success btn-sm me-2 fw-medium" onclick="verifikasiPembayaran(${item.payment_id}, 'Berhasil')">✓ Terima</button>
+                                    <button id="btn-tolak-${item.payment_id}" class="btn btn-danger btn-sm fw-medium" onclick="verifikasiPembayaran(${item.payment_id}, 'Ditolak')">✕ Tolak</button>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                } else {
+                    tableBody.innerHTML = `<tr><td colspan="6" class="text-center p-4 text-muted">🎉 Tidak ada antrean pembayaran yang perlu diverifikasi saat ini.</td></tr>`;
+                }
+            } catch (error) {
+                tableBody.innerHTML = `<tr><td colspan="6" class="text-center text-danger fw-bold">Gagal terhubung ke backend server! Pastikan node server.js sudah dijalankan.</td></tr>`;
+            }
+        }
+
+        // [UPDATE ENGINE]
+        async function verifikasiPembayaran(paymentId, statusKeputusan) {
+            const btnTerima = document.getElementById(`btn-terima-${paymentId}`);
+            const btnTolak = document.getElementById(`btn-tolak-${paymentId}`);
+            const alertBox = document.getElementById('alert-notification');
+
+            // [DESIGN PRINCIPLE: ERROR PREVENTION]
+            if (btnTerima) btnTerima.disabled = true;
+            if (btnTolak) btnTolak.disabled = true;
+
+            try {
+                // Eksekusi HTTP PATCH asinkronus ke server backend
+                const response = await fetch(`${API_URL}/v1/payments/${paymentId}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        status: statusKeputusan,
+                        reason: "Bukti transfer dinyatakan valid oleh admin"
+                    })
+                });
+
+                const result = await response.json();
+
+                alertBox.className = "alert shadow-sm mb-4";
+                alertBox.classList.remove('d-none');
+
+                if (response.ok) {
+                    // Skenario SUKSES
+                    alertBox.classList.add('alert-success');
+                    alertBox.innerText = `Sukses Sistem: ${result.message}`;
+
+                    // Merubah baris status tabel secara real-time
+                    const badge = document.getElementById(`badge-status-${paymentId}`);
+                    badge.innerText = statusKeputusan;
+                    badge.className = "badge bg-success";
+
+                    // Hilangkan tombol aksi karena data sudah diproses
+                    btnTerima.remove();
+                    btnTolak.remove();
+                } else if (response.status === 409) {
+                    // Skenario GAGAL / Idempotency Check Terdeteksi (HTTP 409 Conflict)
+                    alertBox.classList.add('alert-danger');
+                    alertBox.innerText = `Peringatan Ketahanan Sistem: ${result.message}`;
+
+                    // Sudah terproses sebelumnya
+                    const badge = document.getElementById(`badge-status-${paymentId}`);
+                    badge.innerText = result.data.status_payment;
+                    badge.className = "badge bg-info";
+                    btnTerima.remove();
+                    btnTolak.remove();
+                } else {
+                    // Penanganan Kesalahan Parameter (HTTP 400 atau 500)
+                    alertBox.classList.add('alert-warning');
+                    alertBox.innerText = `Eror (${response.status}): ${result.message}`;
+                    if (btnTerima) btnTerima.disabled = false;
+                    if (btnTolak) btnTolak.disabled = false;
+                }
+            } catch (error) {
+                // Penanganan Kerusakan Fisik Jaringan Jaringan
+                alertBox.className = "alert alert-dark shadow-sm mb-4";
+                alertBox.classList.remove('d-none');
+                alertBox.innerText = `Fatal Exception: Gagal menghubungi server back-end. Jaringan internet lokal terputus.`;
+                if (btnTerima) btnTerima.disabled = false;
+                if (btnTolak) btnTolak.disabled = false;
+            }
+        }
+    </script>
+</body>
+
+</html>
