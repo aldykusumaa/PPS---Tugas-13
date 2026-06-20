@@ -1,17 +1,27 @@
 {
-  "name": "pps---tugas-13",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
-  "dependencies": {
-    "express": "^5.2.1",
-    "mysql2": "^3.22.5"
-  }
+    "name": "pps-tugas-13-gymove",
+    "version": "1.0.0",
+    "description": "Payment Verification Service (UC15) untuk sistem Fitness Center Gymove menggunakan pendekatan SOA",
+    "main": "server.js",
+    "scripts": {
+        "start": "node server.js",
+        "dev": "node server.js",
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "keywords": [
+        "gymove",
+        "soa",
+        "payment-service",
+        "nodejs",
+        "express",
+        "mysql"
+    ],
+    "author": "Kadek Aldi Kusuma",
+    "license": "ISC",
+    "type": "commonjs",
+    "dependencies": {
+        "dotenv": "^16.4.5",
+        "express": "^5.2.1",
+        "mysql2": "^3.22.5"
+    }
 }
